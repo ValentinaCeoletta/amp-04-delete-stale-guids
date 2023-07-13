@@ -3,6 +3,7 @@ from collections import namedtuple
 import configparser
 import sys
 import requests
+import csv
 
 UTC_NOW = datetime.utcnow()
 
@@ -52,6 +53,16 @@ def confirm_delete():
             return True
         if reply[:1] == 'n':
             return False
+
+def source_delete():
+    '''Ask the user if they want to delete the all GUIDs or a selection from csv
+    '''
+
+    reply = str(input('Do you want to delete all  GUIDs of from file csv?'+' (all/csv): ')).lower().strip()
+    if reply[:3] == 'csv':
+        return True
+    if reply[:3] == 'all':
+        return False
 
 def delete_guid(session, guid, hostname, computers_url):
     '''Delete the supplied GUID
@@ -134,10 +145,26 @@ def main():
                 file_output.write('{},{},{}\n'.format(computer.age,
                                                       computer.guid,
                                                       computer.hostname))
-        # Check if the user wants to GUIDs to be deleted
+
+        # Check if the user wants to delete GUIDs and from which source (csv or all)
         if confirm_delete():
-            for computer in computers_to_delete:
-                delete_guid(amp_session, computer.guid, computer.hostname, computers_url)
+            if source_delete():
+                print("Deleting from file...")
+                with open('stale_guids.csv') as csv_file:
+                    csv_reader = csv.reader(csv_file, delimiter=',')
+                    line_count = 0
+                    for row in csv_reader:
+                        if line_count == 0:
+                            line_count += 1
+                            continue
+                        else:
+                            delete_guid(amp_session, row[1], row[2], computers_url)
+                            #print('GUID: {} Hostname {}'.format(row[1],row[2]))
+                            line_count += 1
+            else:
+                print("Deleting all GUIDs...")
+                for computer in computers_to_delete:
+                    delete_guid(amp_session, computer.guid, computer.hostname, computers_url)
         else:
             sys.exit('Exiting!')
 
